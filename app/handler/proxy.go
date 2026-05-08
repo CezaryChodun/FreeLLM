@@ -9,6 +9,8 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+
+	"github.com/cezarychodun/freellms/app/usage"
 )
 
 func Intercept(w http.ResponseWriter, r *http.Request) {
@@ -16,6 +18,27 @@ func Intercept(w http.ResponseWriter, r *http.Request) {
 
 	targetURL, _ := url.Parse("http://0.0.0.0:4000")
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+
+	proxy.ModifyResponse = func(resp *http.Response) error {
+		fmt.Println("Response received, processing usage information...")
+		if resp.Body == nil || resp.Body == http.NoBody {
+			return nil
+		}
+
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		resp.Body.Close()
+
+		printUsageFromResponse(bodyBytes)
+
+		resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		resp.ContentLength = int64(len(bodyBytes))
+		resp.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodyBytes)))
+
+		return nil
+	}
 
 	// Rewrite request body before forwarding.
 	if r.Body != nil && r.Body != http.NoBody {
@@ -44,6 +67,22 @@ func Intercept(w http.ResponseWriter, r *http.Request) {
 	r.Host = targetURL.Host
 
 	proxy.ServeHTTP(w, r)
+}
+
+func printUsageFromResponse(bodyBytes []byte) {
+	var payload usage.GeminiResponse
+	if err := json.Unmarshal(bodyBytes, &payload); err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	usageBytes, err := json.Marshal(payload.Usage)
+	if err != nil {
+		fmt.Println("usage:", payload)
+		return
+	}
+
+	fmt.Println("usage:", string(usageBytes))
 }
 
 func replaceModelValue(v any) any {
