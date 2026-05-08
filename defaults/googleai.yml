@@ -1,0 +1,4 @@
+- name: gemini-flash
+  TPM: 1000
+  RPM: 100
+  RPD: 10000
