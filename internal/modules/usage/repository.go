@@ -34,7 +34,7 @@ func (r *ModelResourcesRepository) Create(resources *ModelResources) error {
 	}
 
 	_, err := r.db.NamedExec(`
-		INSERT INTO remaining_resources (
+		INSERT INTO used_resources (
 			model,
 			input_tokens_per_minute,
 			output_tokens_per_minute,
@@ -63,7 +63,7 @@ func (r *ModelResourcesRepository) FindByModel(model string) (*ModelResources, e
 			output_tokens_per_minute,
 			requests_per_day,
 			last_used
-		FROM remaining_resources
+		FROM used_resources
 		WHERE model = $1
 	`, model)
 	if err != nil {
@@ -87,7 +87,7 @@ func (r *ModelResourcesRepository) List() ([]ModelResources, error) {
 			output_tokens_per_minute,
 			requests_per_day,
 			last_used
-		FROM remaining_resources
+		FROM used_resources
 		ORDER BY model
 	`)
 	if err != nil {
@@ -103,7 +103,7 @@ func (r *ModelResourcesRepository) Update(resources *ModelResources) error {
 	}
 
 	result, err := r.db.NamedExec(`
-		UPDATE remaining_resources
+		UPDATE used_resources
 		SET
 			input_tokens_per_minute = :input_tokens_per_minute,
 			output_tokens_per_minute = :output_tokens_per_minute,
@@ -129,7 +129,7 @@ func (r *ModelResourcesRepository) Update(resources *ModelResources) error {
 
 func (r *ModelResourcesRepository) Delete(model string) error {
 	result, err := r.db.Exec(`
-		DELETE FROM remaining_resources
+		DELETE FROM used_resources
 		WHERE model = $1
 	`, model)
 	if err != nil {
