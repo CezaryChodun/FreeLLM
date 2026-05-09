@@ -4,92 +4,36 @@ import (
 	"database/sql"
 	"errors"
 	"time"
+
+	"github.com/jmoiron/sqlx"
 )
 
-type RemainingResources struct {
-	Model                 string
-	InputTokensPerMinute  int
-	OutputTokensPerMinute int
-	RequestsPerDay        int
-	LastUsed              time.Time
+var ErrModelResourcesNotFound = errors.New("model resources not found")
+
+type ModelResources struct {
+	Model                 string    `db:"model" json:"model"`
+	InputTokensPerMinute  int       `db:"input_tokens_per_minute" json:"input_tokens_per_minute"`
+	OutputTokensPerMinute int       `db:"output_tokens_per_minute" json:"output_tokens_per_minute"`
+	RequestsPerDay        int       `db:"requests_per_day" json:"requests_per_day"`
+	LastUsed              time.Time `db:"last_used" json:"last_used"`
 }
 
-type UsageService struct {
-	db *sql.DB
+type ModelResourcesRepository struct {
+	db *sqlx.DB
 }
 
-var (
-	service *UsageService
-)
-
-func NewUsageService(db *sql.DB) *UsageService {
-	service = &UsageService{
+func NewModelResourcesRepository(db *sqlx.DB) *ModelResourcesRepository {
+	return &ModelResourcesRepository{
 		db: db,
 	}
-	return service
 }
 
-func GetUSageService() *UsageService {
-	return service
-}
-
-func (s *UsageService) GetModelResources(model string) (*RemainingResources, error) {
-	resources, err := s.findModelResources(model)
-	if err == nil {
-		return resources, nil
+func (r *ModelResourcesRepository) Create(resources *ModelResources) error {
+	if resources.LastUsed.IsZero() {
+		resources.LastUsed = time.Now()
 	}
 
-	if !errors.Is(err, sql.ErrNoRows) {
-		return nil, err
-	}
-
-	if err := s.CreateModelResources(model, 0, 0, 0); err != nil {
-		return nil, err
-	}
-
-	return s.findModelResources(model)
-}
-
-func (s *UsageService) UpdateModelResources(
-	model string,
-	inputTokensPerMinute int,
-	outputTokensPerMinute int,
-	requestsPerDay int,
-) (*RemainingResources, error) {
-	_, err := s.GetModelResources(model)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = s.db.Exec(`
-		UPDATE remaining_resources
-		SET
-			input_tokens_per_minute = $2,
-			output_tokens_per_minute = $3,
-			requests_per_day = $4,
-			last_used = $5
-		WHERE model = $1
-	`,
-		model,
-		inputTokensPerMinute,
-		outputTokensPerMinute,
-		requestsPerDay,
-		time.Now(),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.findModelResources(model)
-}
-
-func (s *UsageService) CreateModelResources(
-	model string,
-	inputTokensPerMinute int,
-	outputTokensPerMinute int,
-	requestsPerDay int,
-) error {
-	_, err := s.db.Exec(`
+	_, err := r.db.NamedExec(`
 		INSERT INTO remaining_resources (
 			model,
 			input_tokens_per_minute,
@@ -97,23 +41,22 @@ func (s *UsageService) CreateModelResources(
 			requests_per_day,
 			last_used
 		)
-		VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (model) DO NOTHING
-	`,
-		model,
-		inputTokensPerMinute,
-		outputTokensPerMinute,
-		requestsPerDay,
-		time.Now(),
-	)
+		VALUES (
+			:model,
+			:input_tokens_per_minute,
+			:output_tokens_per_minute,
+			:requests_per_day,
+			:last_used
+		)
+	`, resources)
 
 	return err
 }
 
-func (s *UsageService) findModelResources(model string) (*RemainingResources, error) {
-	var resources RemainingResources
+func (r *ModelResourcesRepository) FindByModel(model string) (*ModelResources, error) {
+	var resources ModelResources
 
-	err := s.db.QueryRow(`
+	err := r.db.Get(&resources, `
 		SELECT
 			model,
 			input_tokens_per_minute,
@@ -122,16 +65,116 @@ func (s *UsageService) findModelResources(model string) (*RemainingResources, er
 			last_used
 		FROM remaining_resources
 		WHERE model = $1
-	`, model).Scan(
-		&resources.Model,
-		&resources.InputTokensPerMinute,
-		&resources.OutputTokensPerMinute,
-		&resources.RequestsPerDay,
-		&resources.LastUsed,
-	)
+	`, model)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrModelResourcesNotFound
+		}
+
 		return nil, err
 	}
 
 	return &resources, nil
+}
+
+func (r *ModelResourcesRepository) List() ([]ModelResources, error) {
+	resources := make([]ModelResources, 0)
+
+	err := r.db.Select(&resources, `
+		SELECT
+			model,
+			input_tokens_per_minute,
+			output_tokens_per_minute,
+			requests_per_day,
+			last_used
+		FROM remaining_resources
+		ORDER BY model
+	`)
+	if err != nil {
+		return nil, err
+	}
+
+	return resources, nil
+}
+
+func (r *ModelResourcesRepository) Update(resources *ModelResources) error {
+	if resources.LastUsed.IsZero() {
+		resources.LastUsed = time.Now()
+	}
+
+	result, err := r.db.NamedExec(`
+		UPDATE remaining_resources
+		SET
+			input_tokens_per_minute = :input_tokens_per_minute,
+			output_tokens_per_minute = :output_tokens_per_minute,
+			requests_per_day = :requests_per_day,
+			last_used = :last_used
+		WHERE model = :model
+	`, resources)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrModelResourcesNotFound
+	}
+
+	return nil
+}
+
+func (r *ModelResourcesRepository) Delete(model string) error {
+	result, err := r.db.Exec(`
+		DELETE FROM remaining_resources
+		WHERE model = $1
+	`, model)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrModelResourcesNotFound
+	}
+
+	return nil
+}
+
+func (r *ModelResourcesRepository) AddTokenUsage(model string, inputTokens int, outputTokens int) error {
+	result, err := r.db.Exec(`
+		UPDATE remaining_resources
+		SET
+			input_tokens_per_minute = input_tokens_per_minute + $2,
+			output_tokens_per_minute = output_tokens_per_minute + $3,
+			requests_per_day = requests_per_day + 1,
+			last_used = $4
+		WHERE model = $1
+	`,
+		model,
+		inputTokens,
+		outputTokens,
+		time.Now(),
+	)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrModelResourcesNotFound
+	}
+
+	return nil
 }

@@ -1,7 +1,6 @@
 package database
 
 import (
-	"database/sql"
 	"embed"
 	"fmt"
 	"io/fs"
@@ -10,13 +9,14 @@ import (
 	"strings"
 
 	"github.com/cezarychodun/freellms/internal/config"
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
 
 //go:embed migrations/*.sql
 var migrationFiles embed.FS
 
-func Open(dbConfig *config.DBConfig) (*sql.DB, error) {
+func Open(dbConfig *config.DBConfig) (*sqlx.DB, error) {
 	switch dbConfig.Dialect {
 	case "postgres":
 		return openPostgres(dbConfig)
@@ -25,7 +25,7 @@ func Open(dbConfig *config.DBConfig) (*sql.DB, error) {
 	}
 }
 
-func openPostgres(dbConfig *config.DBConfig) (*sql.DB, error) {
+func openPostgres(dbConfig *config.DBConfig) (*sqlx.DB, error) {
 	dsn := fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		dbConfig.Host,
@@ -36,7 +36,7 @@ func openPostgres(dbConfig *config.DBConfig) (*sql.DB, error) {
 		"disable",
 	)
 
-	db, err := sql.Open("postgres", dsn)
+	db, err := sqlx.Open("postgres", dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func openPostgres(dbConfig *config.DBConfig) (*sql.DB, error) {
 	return db, nil
 }
 
-func migrate(db *sql.DB) error {
+func migrate(db *sqlx.DB) error {
 	fmt.Println("Migrating database...")
 
 	if err := ensureSchemaMigrationsTable(db); err != nil {
@@ -89,7 +89,7 @@ type migration struct {
 	SQL  string
 }
 
-func ensureSchemaMigrationsTable(db *sql.DB) error {
+func ensureSchemaMigrationsTable(db *sqlx.DB) error {
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			version TEXT PRIMARY KEY,
@@ -140,7 +140,7 @@ func loadMigrations() ([]migration, error) {
 	return migrations, nil
 }
 
-func isMigrationApplied(db *sql.DB, name string) (bool, error) {
+func isMigrationApplied(db *sqlx.DB, name string) (bool, error) {
 	var exists bool
 
 	err := db.QueryRow(`
@@ -157,8 +157,8 @@ func isMigrationApplied(db *sql.DB, name string) (bool, error) {
 	return exists, nil
 }
 
-func applyMigration(db *sql.DB, migration migration) error {
-	tx, err := db.Begin()
+func applyMigration(db *sqlx.DB, migration migration) error {
+	tx, err := db.Beginx()
 	if err != nil {
 		return err
 	}

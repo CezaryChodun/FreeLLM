@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+
+	"github.com/cezarychodun/freellms/internal/modules/usage"
 )
 
-func NewReverseProxy(targetURL *url.URL) http.Handler {
+func NewReverseProxy(targetURL *url.URL, modelResourcesRepository *usage.ModelResourcesRepository) http.Handler {
 	reverseProxy := httputil.NewSingleHostReverseProxy(targetURL)
 
 	originalDirector := reverseProxy.Director
@@ -35,8 +37,8 @@ func NewReverseProxy(targetURL *url.URL) http.Handler {
 		}
 		resp.Body.Close()
 
-		usage := ExtractUsageFromResponse(bodyBytes)
-		RegisterUsage(usage)
+		usageStats := ExtractUsageFromResponse(bodyBytes)
+		RegisterUsage(modelResourcesRepository, usageStats)
 
 		resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 		resp.ContentLength = int64(len(bodyBytes))
