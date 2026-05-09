@@ -1,22 +1,31 @@
 package app
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
 
-	"github.com/cezarychodun/freellms/app/handler"
-	"github.com/cezarychodun/freellms/config"
+	"github.com/cezarychodun/freellms/internal/config"
+	"github.com/cezarychodun/freellms/internal/database"
+	"github.com/cezarychodun/freellms/internal/handler"
 	"github.com/gorilla/mux"
 )
 
 // App has router and db instances
 type App struct {
 	Router *mux.Router
+	DB     *sql.DB
 }
 
 // Initialize initializes the app with predefined configuration
 func (a *App) Initialize(config *config.Config) {
+	db, err := database.Open(config.DB)
+	if err != nil {
+		log.Fatalf("failed to initialize database: %v", err)
+	}
+
+	a.DB = db
 	a.Router = mux.NewRouter()
 	a.setRouters()
 }
@@ -51,6 +60,8 @@ func (a *App) Delete(path string, f func(w http.ResponseWriter, r *http.Request)
 
 // Run the app on it's router
 func (a *App) Run(host string) {
+	defer a.DB.Close()
+
 	log.Fatal(http.ListenAndServe(host, a.Router))
 }
 

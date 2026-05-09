@@ -17,13 +17,25 @@ type DBConfig struct {
 func GetConfig() *Config {
 	return &Config{
 		DB: &DBConfig{
-			Dialect:  "mysql",
+			Dialect:  "postgres",
 			Host:     "127.0.0.1",
-			Port:     3306,
+			Port:     7432,
 			Username: "guest",
 			Password: "Guest0000!",
-			Name:     "todoapp",
+			Name:     "freellm",
 			Charset:  "utf8",
 		},
 	}
 }
+
+/**
+
+Dialect:  getEnv("DB_DIALECT", "postgres"),
+Host:     getEnv("DB_HOST", ""),
+Port:     getEnvAsInt("DB_PORT", 0),
+Username: getEnv("DB_USERNAME", ""),
+Password: getEnv("DB_PASSWORD", ""),
+Name:     getEnv("DB_NAME", ""),
+SSLMode:  getEnv("DB_SSLMODE", ""),
+
+*/

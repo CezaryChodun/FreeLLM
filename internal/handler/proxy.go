@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/cezarychodun/freellms/app/usage"
+	"github.com/cezarychodun/freellms/internal/modules/usage"
 )
 
 func Intercept(w http.ResponseWriter, r *http.Request) {
@@ -31,7 +31,8 @@ func Intercept(w http.ResponseWriter, r *http.Request) {
 		}
 		resp.Body.Close()
 
-		printUsageFromResponse(bodyBytes)
+		usage := getUsageFromResponse(bodyBytes)
+		registerUsage(usage)
 
 		resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 		resp.ContentLength = int64(len(bodyBytes))
@@ -40,6 +41,18 @@ func Intercept(w http.ResponseWriter, r *http.Request) {
 		return nil
 	}
 
+	replaceModelInBody(r)
+
+	// Update headers for SSL/forwarding
+	r.URL.Host = targetURL.Host
+	r.URL.Scheme = targetURL.Scheme
+	r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
+	r.Host = targetURL.Host
+
+	proxy.ServeHTTP(w, r)
+}
+
+func replaceModelInBody(r *http.Request) {
 	// Rewrite request body before forwarding.
 	if r.Body != nil && r.Body != http.NoBody {
 		bodyBytes, err := io.ReadAll(r.Body)
@@ -59,30 +72,51 @@ func Intercept(w http.ResponseWriter, r *http.Request) {
 			r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 		}
 	}
-
-	// Update headers for SSL/forwarding
-	r.URL.Host = targetURL.Host
-	r.URL.Scheme = targetURL.Scheme
-	r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
-	r.Host = targetURL.Host
-
-	proxy.ServeHTTP(w, r)
 }
 
-func printUsageFromResponse(bodyBytes []byte) {
-	var payload usage.GeminiResponse
-	if err := json.Unmarshal(bodyBytes, &payload); err != nil {
-		fmt.Println("Error:", err)
-		return
+func getUsageFromResponse(bodyBytes []byte) usage.Usage {
+	fmt.Println("Calculating usage...")
+	fmt.Println("Body:", string(bodyBytes))
+
+	lines := strings.Split(string(bodyBytes), "\n")
+	stats := usage.Usage{}
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+
+		if line == "" || (!strings.HasPrefix(line, "data:") && !strings.HasPrefix(line, "{")) {
+			continue
+		}
+
+		body := line
+		if strings.HasPrefix(line, "data:") {
+			body = strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		}
+
+		if body == "" || body == "[DONE]" {
+			continue
+		}
+
+		var payload usage.OpenAIResponse
+		if err := json.Unmarshal([]byte(body), &payload); err != nil {
+			fmt.Printf("Error: %+v\n", err)
+			continue
+		}
+
+		fmt.Printf("Registred usage: in: %d, out: %d \n", payload.Usage.InputTokens, payload.Usage.OutputTokens)
+		if payload.Model != "" {
+			stats.ModelName = payload.Model
+		}
+		stats.InputTokens += payload.Usage.InputTokens
+		stats.OutputTokens += payload.Usage.OutputTokens
+		stats.Timestamp = max(payload.Timestamp, stats.Timestamp)
 	}
 
-	usageBytes, err := json.Marshal(payload.Usage)
-	if err != nil {
-		fmt.Println("usage:", payload)
-		return
-	}
+	return stats
+}
 
-	fmt.Println("usage:", string(usageBytes))
+func registerUsage(usage usage.Usage) {
+	fmt.Println("Registering usage...")
+	fmt.Println("Usage:", usage)
 }
 
 func replaceModelValue(v any) any {
