@@ -3,6 +3,7 @@ package usage
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -149,40 +150,68 @@ func (r *ModelResourcesRepository) Delete(model string) error {
 }
 
 func (r *ModelResourcesRepository) AddTokenUsage(model string, inputTokens int, outputTokens int, timestamp int) error {
-	lastUsed := time.Unix(int64(timestamp), 0)
+	lastUsed := time.Unix(int64(timestamp), 0).UTC()
 
-	result, err := r.db.Exec(`
-		UPDATE remaining_resources
-		SET
-			input_tokens_per_minute = input_tokens_per_minute + $2,
-			output_tokens_per_minute = output_tokens_per_minute + $3,
-			requests_per_day = requests_per_day + 1,
-			last_used = $4
-		WHERE model = $1
-	`,
-		model,
-		inputTokens,
-		outputTokens,
-		lastUsed,
-	)
+	resources, err := r.FindByModel(model)
 	if err != nil {
+		if errors.Is(err, ErrModelResourcesNotFound) {
+			return r.Create(&ModelResources{
+				Model:                 model,
+				InputTokensPerMinute:  inputTokens,
+				OutputTokensPerMinute: outputTokens,
+				RequestsPerDay:        1,
+				LastUsed:              lastUsed,
+			})
+		}
+
 		return err
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
+	inputTokensPerMinute := resources.InputTokensPerMinute
+	outputTokensPerMinute := resources.OutputTokensPerMinute
+	requestsPerDay := resources.RequestsPerDay
+
+	if isDifferentMinute(resources.LastUsed, lastUsed) {
+		inputTokensPerMinute = inputTokens
+		outputTokensPerMinute = outputTokens
+	} else {
+		inputTokensPerMinute += inputTokens
+		outputTokensPerMinute += outputTokens
 	}
 
-	if rowsAffected > 0 {
-		return nil
+	if isDifferentDay(resources.LastUsed, lastUsed) {
+		requestsPerDay = 1
+	} else {
+		requestsPerDay++
 	}
 
-	return r.Create(&ModelResources{
+	return r.Update(&ModelResources{
 		Model:                 model,
-		InputTokensPerMinute:  inputTokens,
-		OutputTokensPerMinute: outputTokens,
-		RequestsPerDay:        1,
+		InputTokensPerMinute:  inputTokensPerMinute,
+		OutputTokensPerMinute: outputTokensPerMinute,
+		RequestsPerDay:        requestsPerDay,
 		LastUsed:              lastUsed,
 	})
+}
+
+func isDifferentMinute(previous time.Time, current time.Time) bool {
+	previous = previous.UTC()
+	current = current.UTC()
+
+	out := previous.Year() != current.Year() ||
+		previous.YearDay() != current.YearDay() ||
+		previous.Hour() != current.Hour() ||
+		previous.Minute() != current.Minute()
+
+	fmt.Printf("Out: %v\n, prev: %v, curr: %v\n", out, previous, current)
+
+	return out
+}
+
+func isDifferentDay(previous time.Time, current time.Time) bool {
+	previous = previous.UTC()
+	current = current.UTC()
+
+	return previous.Year() != current.Year() ||
+		previous.YearDay() != current.YearDay()
 }
