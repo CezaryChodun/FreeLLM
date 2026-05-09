@@ -1,8 +1,8 @@
 package main
 
 import (
+	"github.com/cezarychodun/freellms/internal/app"
 	"github.com/cezarychodun/freellms/internal/config"
-	"github.com/cezarychodun/freellms/internal/modules/app"
 )
 
 func main() {
