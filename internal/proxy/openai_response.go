@@ -3,7 +3,7 @@ package proxy
 type OpenAIResponse struct {
 	Model     string       `json:"model"`
 	Usage     UsagePayload `json:"usage"`
-	Timestamp int          `json:"timestamp"`
+	Timestamp int          `json:"created"`
 }
 
 type UsagePayload struct {

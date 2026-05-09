@@ -148,7 +148,9 @@ func (r *ModelResourcesRepository) Delete(model string) error {
 	return nil
 }
 
-func (r *ModelResourcesRepository) AddTokenUsage(model string, inputTokens int, outputTokens int) error {
+func (r *ModelResourcesRepository) AddTokenUsage(model string, inputTokens int, outputTokens int, timestamp int) error {
+	lastUsed := time.Unix(int64(timestamp), 0)
+
 	result, err := r.db.Exec(`
 		UPDATE remaining_resources
 		SET
@@ -161,7 +163,7 @@ func (r *ModelResourcesRepository) AddTokenUsage(model string, inputTokens int, 
 		model,
 		inputTokens,
 		outputTokens,
-		time.Now(),
+		lastUsed,
 	)
 	if err != nil {
 		return err
@@ -172,9 +174,15 @@ func (r *ModelResourcesRepository) AddTokenUsage(model string, inputTokens int, 
 		return err
 	}
 
-	if rowsAffected == 0 {
-		return ErrModelResourcesNotFound
+	if rowsAffected > 0 {
+		return nil
 	}
 
-	return nil
+	return r.Create(&ModelResources{
+		Model:                 model,
+		InputTokensPerMinute:  inputTokens,
+		OutputTokensPerMinute: outputTokens,
+		RequestsPerDay:        1,
+		LastUsed:              lastUsed,
+	})
 }

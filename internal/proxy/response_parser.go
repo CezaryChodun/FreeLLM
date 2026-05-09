@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -58,20 +57,21 @@ func RegisterUsage(repository *usage.ModelResourcesRepository, stats usage.Usage
 		return
 	}
 
-	if err := repository.AddTokenUsage(stats.ModelName, stats.InputTokens, stats.OutputTokens); err != nil {
-		if errors.Is(err, usage.ErrModelResourcesNotFound) {
-			fmt.Printf("Skipping usage registration: unknown model %q\n", stats.ModelName)
-			return
-		}
-
+	if err := repository.AddTokenUsage(
+		stats.ModelName,
+		stats.InputTokens,
+		stats.OutputTokens,
+		stats.Timestamp,
+	); err != nil {
 		fmt.Printf("Failed to register usage for model %q: %+v\n", stats.ModelName, err)
 		return
 	}
 
 	fmt.Printf(
-		"Registered usage for model %q: input_tokens=%d output_tokens=%d\n",
+		"Registered usage for model %q: input_tokens=%d output_tokens=%d timestamp=%d\n",
 		stats.ModelName,
 		stats.InputTokens,
 		stats.OutputTokens,
+		stats.Timestamp,
 	)
 }
