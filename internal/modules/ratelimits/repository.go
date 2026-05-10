@@ -19,15 +19,15 @@ func NewRateLimitRepository(db *sqlx.DB) *RateLimitRepository {
 
 func (r *RateLimitRepository) Create(rl *RateLimit) error {
 	_, err := r.db.NamedExec(`
-		INSERT INTO rate_limits (name, input_tokens_per_minute, output_tokens_per_minute, requests_per_day)
-		VALUES (:name, :input_tokens_per_minute, :output_tokens_per_minute, :requests_per_day)
+		INSERT INTO rate_limits (model, input_tokens_per_minute, output_tokens_per_minute, requests_per_minute, requests_per_day)
+		VALUES (:model, :input_tokens_per_minute, :output_tokens_per_minute, :requests_per_minute, :requests_per_day)
 	`, rl)
 	return err
 }
 
-func (r *RateLimitRepository) FindByName(name string) (*RateLimit, error) {
+func (r *RateLimitRepository) FindByModel(model string) (*RateLimit, error) {
 	var rl RateLimit
-	err := r.db.Get(&rl, `SELECT * FROM rate_limits WHERE name = $1`, name)
+	err := r.db.Get(&rl, `SELECT * FROM rate_limits WHERE model = $1`, model)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrRateLimitNotFound
@@ -39,7 +39,7 @@ func (r *RateLimitRepository) FindByName(name string) (*RateLimit, error) {
 
 func (r *RateLimitRepository) List() ([]RateLimit, error) {
 	var results []RateLimit
-	err := r.db.Select(&results, `SELECT * FROM rate_limits ORDER BY name`)
+	err := r.db.Select(&results, `SELECT * FROM rate_limits ORDER BY model`)
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +51,9 @@ func (r *RateLimitRepository) Update(rl *RateLimit) error {
 		UPDATE rate_limits
 		SET input_tokens_per_minute = :input_tokens_per_minute,
 		    output_tokens_per_minute = :output_tokens_per_minute,
+		    requests_per_minute = :requests_per_minute,
 		    requests_per_day = :requests_per_day
-		WHERE name = :name
+		WHERE model = :model
 	`, rl)
 	if err != nil {
 		return err
@@ -67,8 +68,8 @@ func (r *RateLimitRepository) Update(rl *RateLimit) error {
 	return nil
 }
 
-func (r *RateLimitRepository) Delete(name string) error {
-	result, err := r.db.Exec(`DELETE FROM rate_limits WHERE name = $1`, name)
+func (r *RateLimitRepository) Delete(model string) error {
+	result, err := r.db.Exec(`DELETE FROM rate_limits WHERE model = $1`, model)
 	if err != nil {
 		return err
 	}
@@ -80,4 +81,9 @@ func (r *RateLimitRepository) Delete(name string) error {
 		return ErrRateLimitNotFound
 	}
 	return nil
+}
+
+func (r *RateLimitRepository) Clear() error {
+	_, err := r.db.Exec(`DELETE FROM rate_limits`)
+	return err
 }

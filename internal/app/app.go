@@ -8,6 +8,7 @@ import (
 	"github.com/cezarychodun/freellms/internal/config"
 	"github.com/cezarychodun/freellms/internal/database"
 	apphttp "github.com/cezarychodun/freellms/internal/http"
+	"github.com/cezarychodun/freellms/internal/modules/ratelimits"
 	"github.com/cezarychodun/freellms/internal/modules/usage"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
@@ -27,6 +28,11 @@ func (a *App) Initialize(config *config.Config) {
 	}
 
 	modelResourcesRepository := usage.NewModelResourcesRepository(db)
+
+	rateLimitRepo := ratelimits.NewRateLimitRepository(db)
+	if err := ratelimits.LoadConfig(rateLimitRepo, "config.yml", "defaults"); err != nil {
+		log.Fatalf("failed to load rate limits config: %v", err)
+	}
 
 	a.DB = db
 	a.Router = apphttp.NewRouter(modelResourcesRepository)

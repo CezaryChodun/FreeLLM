@@ -1,0 +1,3 @@
+models:
+  - model: gemini/gemini-flash-3.5
+  - model: gemini/gemini-flash-2.5
