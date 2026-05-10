@@ -1,0 +1,51 @@
+model_list:
+  - model_name: gemini-2.5-flash
+    litellm_params:
+      model: gemini/gemini-2.5-flash
+      api_key: os.environ/GOOGLE_API_KEY
+    model_info:
+      rpm: 5
+      tpm: 250000
+      rpd: 20
+  - model_name: gemini-3-flash
+    litellm_params:
+      model: gemini/gemini-3-flash-preview
+      api_key: os.environ/GOOGLE_API_KEY
+    model_info:
+      rpm: 5
+      tpm: 250000
+      rpd: 20
+  - model_name: gemini-3.1-flash-lite
+    litellm_params:
+      model: gemini/gemini-3.1-flash-lite-preview
+      api_key: os.environ/GOOGLE_API_KEY
+    model_info:
+      rpm: 15
+      tpm: 250000
+      rpd: 500
+  - model_name: gemini-2.5-flash-lite
+    litellm_params:
+      model: gemini/gemini-2.5-flash-lite
+      api_key: os.environ/GOOGLE_API_KEY
+    model_info:
+      rpm: 10
+      tpm: 250000
+      rpd: 20
+  - model_name: gemma-4-26b
+    litellm_params:
+      model: gemini/gemma-4-26b-a4b-it
+      api_key: os.environ/GOOGLE_API_KEY
+    model_info:
+      rpm: 15
+      rpd: 1500
+  - model_name: gemma-4-31b
+    litellm_params:
+      model: gemini/gemma-4-31b-it
+      api_key: os.environ/GOOGLE_API_KEY
+    model_info:
+      rpm: 15
+      rpd: 1500
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL

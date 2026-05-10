@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 
 	"github.com/cezarychodun/freellms/internal/modules/usage"
 	"github.com/cezarychodun/freellms/internal/proxy"
@@ -14,7 +15,11 @@ type ProxyHandler struct {
 }
 
 func NewProxyHandler(modelResourcesRepository *usage.ModelResourcesRepository, selector *proxy.ModelSelector) *ProxyHandler {
-	targetURL, err := url.Parse("http://0.0.0.0:4000")
+	target := os.Getenv("LITELLM_URL")
+	if target == "" {
+		target = "http://localhost:4000"
+	}
+	targetURL, err := url.Parse(target)
 	if err != nil {
 		log.Fatalf("failed to parse proxy target URL: %v", err)
 	}
