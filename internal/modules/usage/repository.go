@@ -14,6 +14,7 @@ type ModelResources struct {
 	Model                 string    `db:"model" json:"model"`
 	InputTokensPerMinute  int       `db:"input_tokens_per_minute" json:"input_tokens_per_minute"`
 	OutputTokensPerMinute int       `db:"output_tokens_per_minute" json:"output_tokens_per_minute"`
+	RequestsPerMinute     int       `db:"requests_per_minute" json:"requests_per_minute"`
 	RequestsPerDay        int       `db:"requests_per_day" json:"requests_per_day"`
 	LastUsed              time.Time `db:"last_used" json:"last_used"`
 }
@@ -34,10 +35,11 @@ func (r *ModelResourcesRepository) Create(resources *ModelResources) error {
 	}
 
 	_, err := r.db.NamedExec(`
-		INSERT INTO used_resources (
+		INSERT INTO usage_tracking (
 			model,
 			input_tokens_per_minute,
 			output_tokens_per_minute,
+			requests_per_minute,
 			requests_per_day,
 			last_used
 		)
@@ -45,6 +47,7 @@ func (r *ModelResourcesRepository) Create(resources *ModelResources) error {
 			:model,
 			:input_tokens_per_minute,
 			:output_tokens_per_minute,
+			:requests_per_minute,
 			:requests_per_day,
 			:last_used
 		)
@@ -61,9 +64,10 @@ func (r *ModelResourcesRepository) FindByModel(model string) (*ModelResources, e
 			model,
 			input_tokens_per_minute,
 			output_tokens_per_minute,
+			requests_per_minute,
 			requests_per_day,
 			last_used
-		FROM used_resources
+		FROM usage_tracking
 		WHERE model = $1
 	`, model)
 	if err != nil {
@@ -85,9 +89,10 @@ func (r *ModelResourcesRepository) List() ([]ModelResources, error) {
 			model,
 			input_tokens_per_minute,
 			output_tokens_per_minute,
+			requests_per_minute,
 			requests_per_day,
 			last_used
-		FROM used_resources
+		FROM usage_tracking
 		ORDER BY model
 	`)
 	if err != nil {
@@ -103,10 +108,11 @@ func (r *ModelResourcesRepository) Update(resources *ModelResources) error {
 	}
 
 	result, err := r.db.NamedExec(`
-		UPDATE used_resources
+		UPDATE usage_tracking
 		SET
 			input_tokens_per_minute = :input_tokens_per_minute,
 			output_tokens_per_minute = :output_tokens_per_minute,
+			requests_per_minute = :requests_per_minute,
 			requests_per_day = :requests_per_day,
 			last_used = :last_used
 		WHERE model = :model
@@ -129,7 +135,7 @@ func (r *ModelResourcesRepository) Update(resources *ModelResources) error {
 
 func (r *ModelResourcesRepository) Delete(model string) error {
 	result, err := r.db.Exec(`
-		DELETE FROM used_resources
+		DELETE FROM usage_tracking
 		WHERE model = $1
 	`, model)
 	if err != nil {

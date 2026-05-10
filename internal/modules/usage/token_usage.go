@@ -27,6 +27,7 @@ func newModelResourcesFromUsage(model string, inputTokens int, outputTokens int,
 		Model:                 model,
 		InputTokensPerMinute:  inputTokens,
 		OutputTokensPerMinute: outputTokens,
+		RequestsPerMinute:     1,
 		RequestsPerDay:        1,
 		LastUsed:              lastUsed,
 	}
@@ -38,9 +39,11 @@ func applyTokenUsage(resources *ModelResources, inputTokens int, outputTokens in
 	if isDifferentMinute(resources.LastUsed, lastUsed) {
 		updatedResources.InputTokensPerMinute = inputTokens
 		updatedResources.OutputTokensPerMinute = outputTokens
+		updatedResources.RequestsPerMinute = 1
 	} else {
 		updatedResources.InputTokensPerMinute += inputTokens
 		updatedResources.OutputTokensPerMinute += outputTokens
+		updatedResources.RequestsPerMinute++
 	}
 
 	if isDifferentDay(resources.LastUsed, lastUsed) {
