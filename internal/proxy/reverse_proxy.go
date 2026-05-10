@@ -11,14 +11,19 @@ import (
 	"github.com/cezarychodun/freellms/internal/modules/usage"
 )
 
-func NewReverseProxy(targetURL *url.URL, modelResourcesRepository *usage.ModelResourcesRepository) http.Handler {
+func NewReverseProxy(targetURL *url.URL, modelResourcesRepository *usage.ModelResourcesRepository, selector *ModelSelector) http.Handler {
 	reverseProxy := httputil.NewSingleHostReverseProxy(targetURL)
 
 	originalDirector := reverseProxy.Director
 	reverseProxy.Director = func(r *http.Request) {
 		originalDirector(r)
 
-		RewriteModelInRequest(r, "gemma-1b")
+		model, err := selector.Next()
+		if err != nil {
+			fmt.Printf("model selection failed: %v\n", err)
+		} else {
+			RewriteModelInRequest(r, model)
+		}
 
 		r.URL.Host = targetURL.Host
 		r.URL.Scheme = targetURL.Scheme

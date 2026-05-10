@@ -13,14 +13,14 @@ type ProxyHandler struct {
 	proxy http.Handler
 }
 
-func NewProxyHandler(modelResourcesRepository *usage.ModelResourcesRepository) *ProxyHandler {
+func NewProxyHandler(modelResourcesRepository *usage.ModelResourcesRepository, selector *proxy.ModelSelector) *ProxyHandler {
 	targetURL, err := url.Parse("http://0.0.0.0:4000")
 	if err != nil {
 		log.Fatalf("failed to parse proxy target URL: %v", err)
 	}
 
 	return &ProxyHandler{
-		proxy: proxy.NewReverseProxy(targetURL, modelResourcesRepository),
+		proxy: proxy.NewReverseProxy(targetURL, modelResourcesRepository, selector),
 	}
 }
 

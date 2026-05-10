@@ -10,6 +10,7 @@ import (
 	apphttp "github.com/cezarychodun/freellms/internal/http"
 	"github.com/cezarychodun/freellms/internal/modules/ratelimits"
 	"github.com/cezarychodun/freellms/internal/modules/usage"
+	"github.com/cezarychodun/freellms/internal/proxy"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 )
@@ -34,8 +35,10 @@ func (a *App) Initialize(config *config.Config) {
 		log.Fatalf("failed to load rate limits config: %v", err)
 	}
 
+	selector := proxy.NewModelSelector(rateLimitRepo, modelResourcesRepository)
+
 	a.DB = db
-	a.Router = apphttp.NewRouter(modelResourcesRepository)
+	a.Router = apphttp.NewRouter(modelResourcesRepository, selector)
 	fmt.Println("App initialized successfully")
 }
 
