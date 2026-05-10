@@ -1,16 +1,24 @@
-- name: gemini-3.1-flash-lite
-  TPM: 250000
-  RPM: 15
-  RPD: 500
-- name: gemini-3-flash
-  TPM: 250000
-  RPM: 5
-  RPD: 20
-- name: gemini-2.5-flash-lite
-  TPM: 250000
-  RPM: 10
-  RPD: 20
 - name: gemini-2.5-flash
   TPM: 250000
   RPM: 5
   RPD: 20
+- name: gemini-3-flash
+  TPM: 250000
+  RPM: 5
+  RPD: 20
+- name: gemini-3.1-flash-lite
+  TPM: 250000
+  RPM: 15
+  RPD: 500
+- name: gemini-2.5-flash-lite
+  TPM: 250000
+  RPM: 10
+  RPD: 20
+- name: gemma-4-26b
+  TPM: 0
+  RPM: 15
+  RPD: 1500
+- name: gemma-4-31b
+  TPM: 0
+  RPM: 15
+  RPD: 1500
