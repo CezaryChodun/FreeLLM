@@ -73,7 +73,47 @@ FreeLLM loads these at startup, populates the rate limits database, and begins r
 
 ## 📦 Deployment
 
-<!-- TODO -->
+### Docker Compose
+
+The easiest way to deploy FreeLLM is with Docker Compose. The `deploy/` directory contains everything you need.
+
+**1. Create your `.env` file**
+
+```bash
+cp deploy/.env.example deploy/.env
+```
+
+Edit `deploy/.env` and fill in your values. See `.env.example` for required variables.
+
+**2. Start the stack**
+
+```bash
+cd deploy
+docker compose up --build
+```
+
+This starts three services:
+- **FreeLLM** — the proxy (port `3000`)
+- **LiteLLM** — connection manager (port `4000`)
+- **PostgreSQL** — database for usage tracking and LiteLLM state
+
+**3. Connect your client**
+
+```bash
+export OPENAI_API_BASE=http://localhost:3000
+```
+
+### Environment Variables
+
+All sensitive configuration is provided via `deploy/.env`. Copy `.env.example` and fill in your values:
+
+| Variable | Description |
+|----------|-------------|
+| `LITELLM_MASTER_KEY` | Admin key for LiteLLM API access |
+| `LITELLM_SALT_KEY` | Encryption key for stored API keys |
+| `LITELLM_DB_PASSWORD` | Password for the LiteLLM PostgreSQL user |
+| `GOOGLE_API_KEY` | Your Google AI API key for Gemini/Gemma models |
+| `GOOGLE_API_BASE` | Google AI API base URL |
 
 ## 📄 License
 
