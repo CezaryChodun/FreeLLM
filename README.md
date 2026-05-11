@@ -1,10 +1,10 @@
 <div align="center">
 
-# 🌐 FreeLLM
+#  FreeLLM
 
-**Free, unlimited access to large language models — for everyone.**
+**Free and easy access to large language models — for everyone.**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 
 ---
@@ -24,16 +24,6 @@ FreeLLM is an open-source proxy that lets you use large language models **comple
 - **Coding agent ready** — Works out of the box with coding agents like [PI](https://github.com/pi). PI is the recommended agent, but any OpenAI-compatible client will work.
 - **Multi-provider support** — Configure multiple LLM providers and models. FreeLLM maximizes your combined free-tier capacity.
 
-## 🚀 Quick Start
-
-Connect any OpenAI-compatible client to FreeLLM:
-
-```bash
-export OPENAI_API_BASE=http://localhost:8080
-```
-
-That's it. Your requests will be automatically distributed across configured free-tier models.
-
 ## 🏗️ Architecture
 
 ```
@@ -43,11 +33,11 @@ That's it. Your requests will be automatically distributed across configured fre
 └─────────────┘     └──────────┘     └──────────┘     └──────────────┘
 ```
 
-FreeLLM sits as a proxy layer on top of [LiteLLM](https://github.com/BerriAI/litellm). LiteLLM handles the connection management, API key rotation, and provider-specific API translations. FreeLLM adds:
+FreeLLM sits as a proxy layer on top of [LiteLLM](https://github.com/BerriAI/litellm). LiteLLM handles the connection management and provider-specific API translations. FreeLLM adds:
 
 - **Usage tracking** — Persists per-model token and request counters in PostgreSQL
 - **Rate limit awareness** — Compares real-time usage against configured quotas
-- **Intelligent routing** — Round-robin model selection filtered to only models with remaining capacity
+- **Intelligent routing** — Model selection filtered to only models with remaining capacity
 
 ## ⚙️ Configuration
 
@@ -71,41 +61,9 @@ Rate limits for each provider are stored in the `defaults/` directory:
 
 FreeLLM loads these at startup, populates the rate limits database, and begins routing immediately.
 
-## 📦 Deployment
-
-### Docker Compose
-
-The easiest way to deploy FreeLLM is with Docker Compose. The `deploy/` directory contains everything you need.
-
-**1. Create your `.env` file**
-
-```bash
-cp deploy/.env.example deploy/.env
-```
-
-Edit `deploy/.env` and fill in your values. See `.env.example` for required variables.
-
-**2. Start the stack**
-
-```bash
-cd deploy
-docker compose up --build
-```
-
-This starts three services:
-- **FreeLLM** — the proxy (port `3000`)
-- **LiteLLM** — connection manager (port `4000`)
-- **PostgreSQL** — database for usage tracking and LiteLLM state
-
-**3. Connect your client**
-
-```bash
-export OPENAI_API_BASE=http://localhost:3000
-```
-
 ### Environment Variables
 
-All sensitive configuration is provided via `deploy/.env`. Copy `.env.example` and fill in your values:
+All sensitive configuration is provided via `.env`. Copy `.env.example` and fill in your values:
 
 | Variable | Description |
 |----------|-------------|
@@ -117,5 +75,5 @@ All sensitive configuration is provided via `deploy/.env`. Copy `.env.example` a
 
 ## 📄 License
 
-MIT
+This project is licensed under the GNU General Public License v3.0 — see the [LICENSE](LICENSE) file for details. [Learn more about GPL v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html).
 
