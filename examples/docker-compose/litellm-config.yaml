@@ -29,6 +29,14 @@ model_list:
       model: gemini/gemma-4-31b-it
       api_base: os.environ/GEMINI_API_BASE
       api_key: os.environ/GEMINI_API_KEY
+  - model_name: llama-3.1-8b-instant
+    litellm_params:
+      model: groq/llama-3.1-8b-instant
+      api_key: os.environ/GROQ_API_KEY
+  - model_name: llama-3.3-70b-versatile
+    litellm_params:
+      model: groq/llama-3.3-70b-versatile
+      api_key: os.environ/GROQ_API_KEY
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
