@@ -1,0 +1,89 @@
+services:
+  app:
+    image: cezarychodun/freellm:latest
+    container_name: freellm
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      APP_PORT: 3000
+      LITELLM_URL: "http://litellm:4000"
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: guest
+      DB_PASSWORD: "Guest0000!"
+      DB_NAME: freellm
+    volumes:
+      - ./config.yml:/app/config.yml:ro
+      - ./defaults:/app/defaults:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      litellm:
+        condition: service_healthy
+
+  litellm:
+    image: docker.litellm.ai/berriai/litellm:main-stable
+    container_name: freellm_litellm
+    restart: always
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./litellm-config.yaml:/app/config.yaml:ro
+    command:
+      - "--config=/app/config.yaml"
+    environment:
+      DATABASE_URL: "postgresql://llmproxy:${LITELLM_DB_PASSWORD}@db:5432/litellm"
+      STORE_MODEL_IN_DB: "True"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  db:
+    image: postgres:16
+    restart: always
+    container_name: freellm_db
+    environment:
+      POSTGRES_DB: freellm
+      POSTGRES_USER: guest
+      POSTGRES_PASSWORD: "Guest0000!"
+      LITELLM_DB_PASSWORD: "${LITELLM_DB_PASSWORD}"
+      POSTGRES_MULTIPLE_DATABASES: litellm
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d freellm -U guest"]
+      interval: 1s
+      timeout: 5s
+      retries: 10
+
+  prometheus:
+    image: prom/prometheus
+    container_name: freellm_prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+
+volumes:
+  postgres_data:
+    name: freellm_postgres_data
+  prometheus_data:
+    driver: local

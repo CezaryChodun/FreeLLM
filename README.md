@@ -24,20 +24,54 @@ FreeLLM is an open-source proxy that lets you use large language models **comple
 - **Coding agent ready** — Works out of the box with coding agents like [PI](https://github.com/pi). PI is the recommended agent, but any OpenAI-compatible client will work.
 - **Multi-provider support** — Configure multiple LLM providers and models. FreeLLM maximizes your combined free-tier capacity.
 
-## 🏗️ Architecture
 
+## 🐳 Quick Start with Docker
+
+The fastest way to get FreeLLM running is with the pre-built Docker image from [Docker Hub](https://hub.docker.com/repository/docker/cezarychodun/freellm/general).
+
+```bash
+# Clone the repo and navigate to the example
+git clone git@github.com:CezaryChodun/FreeLLM.git
+cd FreeLLM/examples/docker-compose
+
+# Configure your environment
+cp .env.example .env
+# Edit .env with your API keys and passwords
+
+# Start all services
+docker compose up -d
 ```
-┌─────────────┐     ┌──────────┐     ┌──────────┐     ┌──────────────┐
-│  Your App   │────▶│ FreeLLM  │────▶│ LiteLLM  │────▶│ LLM Provider │
-│  (PI, etc.) │     │  (proxy) │     │          │     │  (Gemini...) │
-└─────────────┘     └──────────┘     └──────────┘     └──────────────┘
-```
 
-FreeLLM sits as a proxy layer on top of [LiteLLM](https://github.com/BerriAI/litellm). LiteLLM handles the connection management and provider-specific API translations. FreeLLM adds:
+FreeLLM will be available at `http://localhost:3000`. Point any OpenAI-compatible client at this URL.
 
-- **Usage tracking** — Persists per-model token and request counters in PostgreSQL
-- **Rate limit awareness** — Compares real-time usage against configured quotas
-- **Intelligent routing** — Model selection filtered to only models with remaining capacity
+> **Note:** For non-local deployments, change the default database password in `docker-compose.yml` to a strong, unique password.
+
+### What's included
+
+The example spins up four containers:
+- **freellm** — the proxy (port 3000)
+- **litellm** — LLM gateway (port 4000)
+- **postgres** — usage tracking database
+- **prometheus** — metrics collection (port 9090)
+
+### Customization
+
+- **Choose models** — edit `config.yml`
+- **Adjust rate limits** — edit `defaults/gemini.yml`
+- **Add providers** — add new entries to `litellm-config.yaml`, `config.yml`, and corresponding defaults
+
+### Environment Variables
+
+All sensitive configuration is provided via `.env`. Copy `.env.example` and fill in your values:
+
+| Variable | Description |
+|----------|-------------|
+| `LITELLM_MASTER_KEY` | Admin key for LiteLLM API access |
+| `LITELLM_SALT_KEY` | Encryption key for stored API keys |
+| `LITELLM_DB_PASSWORD` | Password for the LiteLLM PostgreSQL user |
+| `GEMINI_API_KEY` | Your Google AI API key for Gemini/Gemma models |
+| `GEMINI_API_BASE` | Google AI API base URL |
+
 
 ## ⚙️ Configuration
 
@@ -61,17 +95,22 @@ Rate limits for each provider are stored in the `defaults/` directory:
 
 FreeLLM loads these at startup, populates the rate limits database, and begins routing immediately.
 
-### Environment Variables
 
-All sensitive configuration is provided via `.env`. Copy `.env.example` and fill in your values:
+## 🏗️ Architecture
 
-| Variable | Description |
-|----------|-------------|
-| `LITELLM_MASTER_KEY` | Admin key for LiteLLM API access |
-| `LITELLM_SALT_KEY` | Encryption key for stored API keys |
-| `LITELLM_DB_PASSWORD` | Password for the LiteLLM PostgreSQL user |
-| `GOOGLE_API_KEY` | Your Google AI API key for Gemini/Gemma models |
-| `GOOGLE_API_BASE` | Google AI API base URL |
+```
+┌─────────────┐     ┌──────────┐     ┌──────────┐     ┌──────────────┐
+│  Your App   │────▶│ FreeLLM  │────▶│ LiteLLM  │────▶│ LLM Provider │
+│  (PI, etc.) │     │  (proxy) │     │          │     │  (Gemini...) │
+└─────────────┘     └──────────┘     └──────────┘     └──────────────┘
+```
+
+FreeLLM sits as a proxy layer on top of [LiteLLM](https://github.com/BerriAI/litellm). LiteLLM handles the connection management and provider-specific API translations. FreeLLM adds:
+
+- **Usage tracking** — Persists per-model token and request counters in PostgreSQL
+- **Rate limit awareness** — Compares real-time usage against configured quotas
+- **Intelligent routing** — Model selection filtered to only models with remaining capacity
+
 
 ## 📄 License
 
