@@ -1,0 +1,8 @@
+- name: llama-3.1-8b-instant
+  TPM: 6000
+  RPM: 30
+  RPD: 14400
+- name: llama-3.3-70b-versatile
+  TPM: 12000
+  RPM: 30
+  RPD: 1000
