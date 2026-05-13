@@ -1,6 +1,9 @@
 package modelgroups
 
-import "github.com/jmoiron/sqlx"
+import (
+	"github.com/cezarychodun/freellms/internal/modules/models"
+	"github.com/jmoiron/sqlx"
+)
 
 type ModelGroupRepository struct {
 	db *sqlx.DB
@@ -26,6 +29,25 @@ func (r *ModelGroupRepository) AddMember(groupID, modelID int) error {
 		ON CONFLICT DO NOTHING
 	`, groupID, modelID)
 	return err
+}
+
+func (r *ModelGroupRepository) FindModelsByGroupName(name string) ([]models.Model, error) {
+	var result []models.Model
+	err := r.db.Select(&result, `
+		SELECT m.id, m.name, m.provider, m.instance
+		FROM models m
+		JOIN model_group_members mgm ON mgm.model_id = m.id
+		JOIN model_groups mg ON mg.id = mgm.model_group_id
+		WHERE mg.name = $1
+		ORDER BY m.id
+	`, name)
+	return result, err
+}
+
+func (r *ModelGroupRepository) GroupExists(name string) (bool, error) {
+	var exists bool
+	err := r.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM model_groups WHERE name = $1)`, name).Scan(&exists)
+	return exists, err
 }
 
 func (r *ModelGroupRepository) Clear() error {

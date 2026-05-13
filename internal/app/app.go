@@ -37,7 +37,7 @@ func (a *App) Initialize(config *config.Config) {
 		log.Fatalf("failed to load rate limits config: %v", err)
 	}
 
-	selector := proxy.NewModelSelector(modelRepo, rateLimitRepo, usageRepo)
+	selector := proxy.NewModelSelector(modelRepo, rateLimitRepo, usageRepo, modelGroupRepo)
 
 	a.DB = db
 	a.Router = apphttp.NewRouter(usageRepo, selector)

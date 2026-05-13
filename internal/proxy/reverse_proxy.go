@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,7 +14,18 @@ import (
 
 func NewReverseProxy(targetURL *url.URL, usageRepo *usage.ModelResourcesRepository, selector *ModelSelector) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		model, err := selector.Next()
+		// Read body to extract model name
+		var bodyBytes []byte
+		if r.Body != nil && r.Body != http.NoBody {
+			bodyBytes, _ = io.ReadAll(r.Body)
+		}
+
+		groupName := extractModelFromBody(bodyBytes)
+
+		// Restore body for downstream use
+		r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+		model, err := selector.Select(groupName)
 		if err != nil {
 			fmt.Printf("model selection failed: %v\n", err)
 		} else {
@@ -31,23 +43,36 @@ func NewReverseProxy(targetURL *url.URL, usageRepo *usage.ModelResourcesReposito
 			if resp.Body == nil || resp.Body == http.NoBody {
 				return nil
 			}
-			bodyBytes, err := io.ReadAll(resp.Body)
+			respBytes, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return err
 			}
 			resp.Body.Close()
 
 			if model.ID > 0 {
-				stats := ExtractUsageFromResponse(bodyBytes)
+				stats := ExtractUsageFromResponse(respBytes)
 				RegisterUsage(usageRepo, model.ID, stats)
 			}
 
-			resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-			resp.ContentLength = int64(len(bodyBytes))
-			resp.Header.Set("Content-Length", fmt.Sprintf("%d", len(bodyBytes)))
+			resp.Body = io.NopCloser(bytes.NewReader(respBytes))
+			resp.ContentLength = int64(len(respBytes))
+			resp.Header.Set("Content-Length", fmt.Sprintf("%d", len(respBytes)))
 			return nil
 		}
 
 		rp.ServeHTTP(w, r)
 	})
+}
+
+func extractModelFromBody(body []byte) string {
+	if len(body) == 0 {
+		return ""
+	}
+	var payload struct {
+		Model string `json:"model"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return ""
+	}
+	return payload.Model
 }
