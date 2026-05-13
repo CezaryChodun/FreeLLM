@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cezarychodun/freellms/internal/modules/modelgroups"
 	"github.com/cezarychodun/freellms/internal/modules/models"
 	"gopkg.in/yaml.v3"
 )
@@ -13,8 +14,14 @@ type modelEntry struct {
 	Model string `yaml:"model"`
 }
 
+type modelGroupEntry struct {
+	Name   string   `yaml:"name"`
+	Models []string `yaml:"models"`
+}
+
 type modelsConfig struct {
-	Models []modelEntry `yaml:"models"`
+	Models      []modelEntry      `yaml:"models"`
+	ModelGroups []modelGroupEntry `yaml:"model_groups"`
 }
 
 type defaultEntry struct {
@@ -24,7 +31,7 @@ type defaultEntry struct {
 	RPD  int    `yaml:"RPD"`
 }
 
-func LoadConfig(modelRepo *models.ModelRepository, rateLimitRepo *RateLimitRepository, configPath, defaultsDir string) error {
+func LoadConfig(modelRepo *models.ModelRepository, rateLimitRepo *RateLimitRepository, modelGroupRepo *modelgroups.ModelGroupRepository, configPath, defaultsDir string) error {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return fmt.Errorf("reading config: %w", err)
@@ -35,6 +42,9 @@ func LoadConfig(modelRepo *models.ModelRepository, rateLimitRepo *RateLimitRepos
 		return fmt.Errorf("parsing config: %w", err)
 	}
 
+	if err := modelGroupRepo.Clear(); err != nil {
+		return fmt.Errorf("clearing model_groups: %w", err)
+	}
 	if err := rateLimitRepo.Clear(); err != nil {
 		return fmt.Errorf("clearing rate_limits: %w", err)
 	}
@@ -69,16 +79,14 @@ func LoadConfig(modelRepo *models.ModelRepository, rateLimitRepo *RateLimitRepos
 				continue
 			}
 
-			// Create model entry (instance 1)
 			m := &models.Model{Name: name, Provider: provider, Instance: 1}
 			if _, err := modelRepo.Create(m); err != nil {
 				return fmt.Errorf("inserting model %s/%s: %w", provider, name, err)
 			}
 
-			// Create rate limit (idempotent per name+provider)
 			_, err := rateLimitRepo.FindByModel(name, provider)
 			if err == nil {
-				continue // already exists
+				continue
 			}
 			rl := &RateLimit{
 				ModelName:             name,
@@ -90,6 +98,28 @@ func LoadConfig(modelRepo *models.ModelRepository, rateLimitRepo *RateLimitRepos
 			}
 			if err := rateLimitRepo.Create(rl); err != nil {
 				return fmt.Errorf("inserting rate limit for %s/%s: %w", provider, name, err)
+			}
+		}
+	}
+
+	// Load model groups
+	for _, g := range cfg.ModelGroups {
+		groupID, err := modelGroupRepo.Create(g.Name)
+		if err != nil {
+			return fmt.Errorf("creating model group %s: %w", g.Name, err)
+		}
+
+		for _, modelRef := range g.Models {
+			parts := strings.SplitN(modelRef, "/", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			m, err := modelRepo.FindByNameProviderInstance(parts[1], parts[0], 1)
+			if err != nil {
+				continue
+			}
+			if err := modelGroupRepo.AddMember(groupID, m.ID); err != nil {
+				return fmt.Errorf("adding model %s to group %s: %w", modelRef, g.Name, err)
 			}
 		}
 	}
