@@ -3,9 +3,9 @@ package proxy
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 
+	"github.com/cezarychodun/freellms/internal/modules/models"
 	"github.com/cezarychodun/freellms/internal/modules/ratelimits"
 	"github.com/cezarychodun/freellms/internal/modules/usage"
 )
@@ -14,32 +14,35 @@ var ErrNoAvailableModel = errors.New("no available model with remaining usage")
 
 type ModelSelector struct {
 	mu            sync.Mutex
-	queue         []string
+	queue         []models.Model
+	modelRepo     *models.ModelRepository
 	rateLimitRepo *ratelimits.RateLimitRepository
 	usageRepo     *usage.ModelResourcesRepository
 }
 
-func NewModelSelector(rateLimitRepo *ratelimits.RateLimitRepository, usageRepo *usage.ModelResourcesRepository) *ModelSelector {
+func NewModelSelector(modelRepo *models.ModelRepository, rateLimitRepo *ratelimits.RateLimitRepository, usageRepo *usage.ModelResourcesRepository) *ModelSelector {
 	return &ModelSelector{
+		modelRepo:     modelRepo,
 		rateLimitRepo: rateLimitRepo,
 		usageRepo:     usageRepo,
 	}
 }
 
-func (s *ModelSelector) Next() (string, error) {
+// Next returns the next available model for request routing.
+func (s *ModelSelector) Next() (models.Model, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if len(s.queue) == 0 {
 		available, err := s.queryAvailable()
 		if err != nil {
-			return "", err
+			return models.Model{}, err
 		}
 		s.queue = available
 	}
 
 	if len(s.queue) == 0 {
-		return "", ErrNoAvailableModel
+		return models.Model{}, ErrNoAvailableModel
 	}
 
 	model := s.queue[0]
@@ -47,38 +50,37 @@ func (s *ModelSelector) Next() (string, error) {
 	return model, nil
 }
 
-func (s *ModelSelector) queryAvailable() ([]string, error) {
-	limits, err := s.rateLimitRepo.List()
+func (s *ModelSelector) queryAvailable() ([]models.Model, error) {
+	allModels, err := s.modelRepo.List()
 	if err != nil {
-		return nil, fmt.Errorf("listing rate limits: %w", err)
+		return nil, fmt.Errorf("listing models: %w", err)
 	}
 
-	var available []string
-	for _, limit := range limits {
-		modelName := stripProvider(limit.Model)
-
-		current, err := s.usageRepo.FindByModel(modelName)
+	var available []models.Model
+	for _, m := range allModels {
+		limit, err := s.rateLimitRepo.FindByModel(m.Name, m.Provider)
 		if err != nil {
-			if errors.Is(err, usage.ErrModelResourcesNotFound) {
-				available = append(available, modelName)
+			if errors.Is(err, ratelimits.ErrRateLimitNotFound) {
 				continue
 			}
-			return nil, fmt.Errorf("finding usage for %s: %w", modelName, err)
+			return nil, fmt.Errorf("finding rate limit for %s/%s: %w", m.Provider, m.Name, err)
 		}
 
-		if hasRemainingUsage(limit, current) {
-			available = append(available, modelName)
+		current, err := s.usageRepo.FindByModelID(m.ID)
+		if err != nil {
+			if errors.Is(err, usage.ErrModelResourcesNotFound) {
+				available = append(available, m)
+				continue
+			}
+			return nil, fmt.Errorf("finding usage for model %d: %w", m.ID, err)
+		}
+
+		if hasRemainingUsage(*limit, current) {
+			available = append(available, m)
 		}
 	}
 
 	return available, nil
-}
-
-func stripProvider(model string) string {
-	if idx := strings.Index(model, "/"); idx != -1 {
-		return model[idx+1:]
-	}
-	return model
 }
 
 func hasRemainingUsage(limit ratelimits.RateLimit, current *usage.ModelResources) bool {

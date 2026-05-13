@@ -46,32 +46,26 @@ func ExtractUsageFromResponse(bodyBytes []byte) usage.Usage {
 	return stats
 }
 
-func RegisterUsage(repository *usage.ModelResourcesRepository, stats usage.Usage) {
-	if stats.ModelName == "" {
-		fmt.Println("Skipping usage registration: response does not contain model name")
-		return
-	}
-
+func RegisterUsage(repository *usage.ModelResourcesRepository, modelID int, stats usage.Usage) {
 	if stats.InputTokens == 0 && stats.OutputTokens == 0 {
 		fmt.Println("Skipping usage registration: response does not contain token usage")
 		return
 	}
 
 	if err := repository.AddTokenUsage(
-		stats.ModelName,
+		modelID,
 		stats.InputTokens,
 		stats.OutputTokens,
 		stats.Timestamp,
 	); err != nil {
-		fmt.Printf("Failed to register usage for model %q: %+v\n", stats.ModelName, err)
+		fmt.Printf("Failed to register usage for model_id %d: %+v\n", modelID, err)
 		return
 	}
 
 	fmt.Printf(
-		"Registered usage for model %q: input_tokens=%d output_tokens=%d timestamp=%d\n",
-		stats.ModelName,
+		"Registered usage for model_id %d: input_tokens=%d output_tokens=%d\n",
+		modelID,
 		stats.InputTokens,
 		stats.OutputTokens,
-		stats.Timestamp,
 	)
 }

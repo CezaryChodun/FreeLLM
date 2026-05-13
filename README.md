@@ -9,7 +9,7 @@
 
 ---
 
-*Democratizing access to AI by intelligently routing requests across free tiers of LLM providers.*
+*Providing access to AI by intelligently routing requests across free tiers of LLM providers.*
 
 </div>
 

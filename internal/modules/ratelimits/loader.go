@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cezarychodun/freellms/internal/modules/models"
 	"gopkg.in/yaml.v3"
 )
 
@@ -23,7 +24,7 @@ type defaultEntry struct {
 	RPD  int    `yaml:"RPD"`
 }
 
-func LoadConfig(repo *RateLimitRepository, configPath, defaultsDir string) error {
+func LoadConfig(modelRepo *models.ModelRepository, rateLimitRepo *RateLimitRepository, configPath, defaultsDir string) error {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return fmt.Errorf("reading config: %w", err)
@@ -34,8 +35,11 @@ func LoadConfig(repo *RateLimitRepository, configPath, defaultsDir string) error
 		return fmt.Errorf("parsing config: %w", err)
 	}
 
-	if err := repo.Clear(); err != nil {
+	if err := rateLimitRepo.Clear(); err != nil {
 		return fmt.Errorf("clearing rate_limits: %w", err)
+	}
+	if err := modelRepo.Clear(); err != nil {
+		return fmt.Errorf("clearing models: %w", err)
 	}
 
 	// Group models by provider
@@ -48,7 +52,7 @@ func LoadConfig(repo *RateLimitRepository, configPath, defaultsDir string) error
 		providerModels[parts[0]] = append(providerModels[parts[0]], parts[1])
 	}
 
-	for provider, models := range providerModels {
+	for provider, modelNames := range providerModels {
 		defaults, err := loadDefaults(defaultsDir, provider)
 		if err != nil {
 			return fmt.Errorf("loading defaults for %s: %w", provider, err)
@@ -59,20 +63,33 @@ func LoadConfig(repo *RateLimitRepository, configPath, defaultsDir string) error
 			defaultsMap[d.Name] = d
 		}
 
-		for _, model := range models {
-			d, ok := defaultsMap[model]
+		for _, name := range modelNames {
+			d, ok := defaultsMap[name]
 			if !ok {
 				continue
 			}
+
+			// Create model entry (instance 1)
+			m := &models.Model{Name: name, Provider: provider, Instance: 1}
+			if _, err := modelRepo.Create(m); err != nil {
+				return fmt.Errorf("inserting model %s/%s: %w", provider, name, err)
+			}
+
+			// Create rate limit (idempotent per name+provider)
+			_, err := rateLimitRepo.FindByModel(name, provider)
+			if err == nil {
+				continue // already exists
+			}
 			rl := &RateLimit{
-				Model:                 provider + "/" + model,
+				ModelName:             name,
+				ModelProvider:         provider,
 				InputTokensPerMinute:  d.TPM,
 				OutputTokensPerMinute: 0,
 				RequestsPerMinute:     d.RPM,
 				RequestsPerDay:        d.RPD,
 			}
-			if err := repo.Create(rl); err != nil {
-				return fmt.Errorf("inserting rate limit for %s: %w", rl.Model, err)
+			if err := rateLimitRepo.Create(rl); err != nil {
+				return fmt.Errorf("inserting rate limit for %s/%s: %w", provider, name, err)
 			}
 		}
 	}
