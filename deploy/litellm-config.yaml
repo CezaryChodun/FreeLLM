@@ -9,9 +9,14 @@ model_list:
       model: gemini/gemini-3-flash-preview
       api_base: os.environ/GEMINI_API_BASE
       api_key: os.environ/GEMINI_API_KEY
+  - model_name: gemini-3.5-flash
+    litellm_params:
+      model: gemini/gemini-3.5-flash
+      api_base: os.environ/GEMINI_API_BASE
+      api_key: os.environ/GEMINI_API_KEY
   - model_name: gemini-3.1-flash-lite
     litellm_params:
-      model: gemini/gemini-3.1-flash-lite-preview
+      model: gemini/gemini-3.1-flash-lite
       api_base: os.environ/GEMINI_API_BASE
       api_key: os.environ/GEMINI_API_KEY
   - model_name: gemini-2.5-flash-lite

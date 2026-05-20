@@ -6,6 +6,10 @@
   TPM: 250000
   RPM: 5
   RPD: 20
+- name: gemini-3.5-flash
+  TPM: 250000
+  RPM: 5
+  RPD: 20
 - name: gemini-3.1-flash-lite
   TPM: 250000
   RPM: 15
