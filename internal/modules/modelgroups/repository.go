@@ -54,3 +54,9 @@ func (r *ModelGroupRepository) Clear() error {
 	_, err := r.db.Exec(`DELETE FROM model_groups`)
 	return err
 }
+
+func (r *ModelGroupRepository) ListAll() ([]ModelGroup, error) {
+	var groups []ModelGroup
+	err := r.db.Select(&groups, `SELECT id, name FROM model_groups ORDER BY name`)
+	return groups, err
+}

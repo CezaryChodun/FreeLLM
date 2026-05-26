@@ -40,7 +40,7 @@ func (a *App) Initialize(config *config.Config) {
 	selector := proxy.NewModelSelector(modelRepo, rateLimitRepo, usageRepo, modelGroupRepo)
 
 	a.DB = db
-	a.Router = apphttp.NewRouter(usageRepo, selector)
+	a.Router = apphttp.NewRouter(usageRepo, selector, modelGroupRepo)
 	fmt.Println("App initialized successfully")
 }
 
