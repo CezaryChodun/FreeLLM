@@ -30,6 +30,7 @@ FreeLLM is an open-source proxy that lets you use large language models **comple
 |----------|-------|-----------|--------------|--------------|
 | Gemini | gemini-2.5-flash | 250,000 | 5 | 20 |
 | Gemini | gemini-3-flash | 250,000 | 5 | 20 |
+| Gemini | gemini-3.5-flash | 250,000 | 5 | 20 |
 | Gemini | gemini-3.1-flash-lite | 250,000 | 15 | 500 |
 | Gemini | gemini-2.5-flash-lite | 250,000 | 10 | 20 |
 | Gemini | gemma-4-26b | unlimited | 15 | 1,500 |
@@ -37,7 +38,7 @@ FreeLLM is an open-source proxy that lets you use large language models **comple
 | Groq | llama-3.1-8b-instant | 6,000 | 30 | 14,400 |
 | Groq | llama-3.3-70b-versatile | 12,000 | 30 | 1,000 |
 
-**Combined capacity:** 1,018,000 tokens/min • 125 requests/min • 18,960 requests/day
+**Combined capacity:** 1,268,000 tokens/min • 130 requests/min • 18,980 requests/day
 
 
 ## 🐳 Quick Start with Docker
