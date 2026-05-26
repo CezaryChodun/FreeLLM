@@ -61,6 +61,8 @@ services:
       POSTGRES_PASSWORD: "Guest0000!"
       LITELLM_DB_PASSWORD: "${LITELLM_DB_PASSWORD}"
       POSTGRES_MULTIPLE_DATABASES: litellm
+    ports:
+      - "7432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro

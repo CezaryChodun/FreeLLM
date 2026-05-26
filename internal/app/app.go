@@ -8,6 +8,8 @@ import (
 	"github.com/cezarychodun/freellms/internal/config"
 	"github.com/cezarychodun/freellms/internal/database"
 	apphttp "github.com/cezarychodun/freellms/internal/http"
+	"github.com/cezarychodun/freellms/internal/modules/modelgroups"
+	"github.com/cezarychodun/freellms/internal/modules/models"
 	"github.com/cezarychodun/freellms/internal/modules/ratelimits"
 	"github.com/cezarychodun/freellms/internal/modules/usage"
 	"github.com/cezarychodun/freellms/internal/proxy"
@@ -15,36 +17,34 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// App has router and db instances.
 type App struct {
 	Router *mux.Router
 	DB     *sqlx.DB
 }
 
-// Initialize initializes the app with predefined configuration.
 func (a *App) Initialize(config *config.Config) {
 	db, err := database.Open(config.DB)
 	if err != nil {
 		log.Fatalf("failed to initialize database: %v", err)
 	}
 
-	modelResourcesRepository := usage.NewModelResourcesRepository(db)
-
+	modelRepo := models.NewModelRepository(db)
 	rateLimitRepo := ratelimits.NewRateLimitRepository(db)
-	if err := ratelimits.LoadConfig(rateLimitRepo, "config.yml", "defaults"); err != nil {
+	usageRepo := usage.NewModelResourcesRepository(db)
+	modelGroupRepo := modelgroups.NewModelGroupRepository(db)
+
+	if err := ratelimits.LoadConfig(modelRepo, rateLimitRepo, modelGroupRepo, "config.yml", "defaults"); err != nil {
 		log.Fatalf("failed to load rate limits config: %v", err)
 	}
 
-	selector := proxy.NewModelSelector(rateLimitRepo, modelResourcesRepository)
+	selector := proxy.NewModelSelector(modelRepo, rateLimitRepo, usageRepo, modelGroupRepo)
 
 	a.DB = db
-	a.Router = apphttp.NewRouter(modelResourcesRepository, selector)
+	a.Router = apphttp.NewRouter(usageRepo, selector, modelGroupRepo)
 	fmt.Println("App initialized successfully")
 }
 
-// Run starts the HTTP server.
 func (a *App) Run(host string) {
 	defer a.DB.Close()
-
 	log.Fatal(nethttp.ListenAndServe(host, a.Router))
 }

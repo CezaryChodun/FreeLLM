@@ -9,7 +9,7 @@
 
 ---
 
-*Democratizing access to AI by intelligently routing requests across free tiers of LLM providers.*
+*Providing access to AI by intelligently routing requests across free tiers of LLM providers.*
 
 </div>
 
@@ -110,6 +110,82 @@ Rate limits for each provider are stored in the `defaults/` directory:
 ```
 
 FreeLLM loads these at startup, populates the rate limits database, and begins routing immediately.
+
+
+## 🗂️ Model Groups
+
+Model groups let you organize models into named sets and route requests to a specific subset of your configured models. When a client sends a request with a group name as the `model` field, FreeLLM only considers models within that group for routing. If no matching group is found, all models are considered.
+
+### Defining Model Groups
+
+Add a `model_groups` section to your `config.yml`. Each group has a name and a list of models (using the same `provider/model` format):
+
+```yaml
+models:
+  - model: gemini/gemini-2.5-flash
+  - model: gemini/gemini-3-flash
+  - model: gemini/gemini-3.1-flash-lite
+  - model: gemini/gemma-4-26b
+  - model: groq/llama-3.3-70b-versatile
+
+model_groups:
+  - name: flash
+    models:
+      - gemini/gemini-2.5-flash
+      - gemini/gemini-3-flash
+      - gemini/gemini-3.1-flash-lite
+  - name: large
+    models:
+      - gemini/gemma-4-26b
+      - groq/llama-3.3-70b-versatile
+```
+
+Models referenced in a group must also be listed in the top-level `models` section.
+
+### Using Model Groups
+
+Set the `model` field in your API request to the group name. FreeLLM will select the best available model within that group:
+
+```bash
+curl http://localhost:3000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "flash",
+    "messages": [{"role": "user", "content": "Hello"}]
+  }'
+```
+
+The `/v1/models` endpoint lists all available groups alongside a special `all` entry that routes across every configured model:
+
+```bash
+curl http://localhost:3000/v1/models
+```
+
+
+## 🔀 Model Routing
+
+Within a group (or across all models when no group is specified), FreeLLM routes each request to the model that is **furthest from hitting its rate limits**.
+
+### How it works
+
+1. **Compute utilization per metric** — For each candidate model, FreeLLM calculates the current usage as a percentage of the configured limit for each metric (tokens/min, requests/min, requests/day).
+2. **Most constrained metric wins** — The highest utilization percentage across all metrics becomes the model's overall utilization score. This means a model that is close to exhausting *any single* limit is considered highly utilized, even if other metrics have plenty of headroom.
+3. **Pick the least utilized model** — The model with the lowest utilization score is selected, spreading load evenly across available capacity.
+4. **Exhausted models are excluded** — Any model that has fully reached its limit on any metric is removed from consideration entirely.
+
+### Example
+
+Given two models in a group:
+
+| Model | Tokens/min used | Tokens/min limit | RPM used | RPM limit | RPD used | RPD limit |
+|-------|----------------|-----------------|----------|-----------|----------|-----------|
+| gemini-2.5-flash | 50,000 | 250,000 (20%) | 3 | 5 (60%) | 10 | 20 (50%) |
+| gemini-3-flash | 100,000 | 250,000 (40%) | 1 | 5 (20%) | 5 | 20 (25%) |
+
+- **gemini-2.5-flash** utilization = max(20%, 60%, 50%) = **60%**
+- **gemini-3-flash** utilization = max(40%, 20%, 25%) = **40%**
+
+FreeLLM routes the request to **gemini-3-flash** because it has the lower utilization score.
 
 
 ## 🏗️ Architecture

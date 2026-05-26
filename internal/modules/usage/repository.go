@@ -11,7 +11,7 @@ import (
 var ErrModelResourcesNotFound = errors.New("model resources not found")
 
 type ModelResources struct {
-	Model                 string    `db:"model" json:"model"`
+	ModelID               int       `db:"model_id" json:"model_id"`
 	InputTokensPerMinute  int       `db:"input_tokens_per_minute" json:"input_tokens_per_minute"`
 	OutputTokensPerMinute int       `db:"output_tokens_per_minute" json:"output_tokens_per_minute"`
 	RequestsPerMinute     int       `db:"requests_per_minute" json:"requests_per_minute"`
@@ -24,132 +24,69 @@ type ModelResourcesRepository struct {
 }
 
 func NewModelResourcesRepository(db *sqlx.DB) *ModelResourcesRepository {
-	return &ModelResourcesRepository{
-		db: db,
-	}
+	return &ModelResourcesRepository{db: db}
 }
 
 func (r *ModelResourcesRepository) Create(resources *ModelResources) error {
 	if resources.LastUsed.IsZero() {
 		resources.LastUsed = time.Now()
 	}
-
 	_, err := r.db.NamedExec(`
-		INSERT INTO usage_tracking (
-			model,
-			input_tokens_per_minute,
-			output_tokens_per_minute,
-			requests_per_minute,
-			requests_per_day,
-			last_used
-		)
-		VALUES (
-			:model,
-			:input_tokens_per_minute,
-			:output_tokens_per_minute,
-			:requests_per_minute,
-			:requests_per_day,
-			:last_used
-		)
+		INSERT INTO usage_tracking (model_id, input_tokens_per_minute, output_tokens_per_minute, requests_per_minute, requests_per_day, last_used)
+		VALUES (:model_id, :input_tokens_per_minute, :output_tokens_per_minute, :requests_per_minute, :requests_per_day, :last_used)
 	`, resources)
-
 	return err
 }
 
-func (r *ModelResourcesRepository) FindByModel(model string) (*ModelResources, error) {
+func (r *ModelResourcesRepository) FindByModelID(modelID int) (*ModelResources, error) {
 	var resources ModelResources
-
 	err := r.db.Get(&resources, `
-		SELECT
-			model,
-			input_tokens_per_minute,
-			output_tokens_per_minute,
-			requests_per_minute,
-			requests_per_day,
-			last_used
-		FROM usage_tracking
-		WHERE model = $1
-	`, model)
+		SELECT model_id, input_tokens_per_minute, output_tokens_per_minute, requests_per_minute, requests_per_day, last_used
+		FROM usage_tracking WHERE model_id = $1
+	`, modelID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrModelResourcesNotFound
 		}
-
 		return nil, err
 	}
-
 	return &resources, nil
-}
-
-func (r *ModelResourcesRepository) List() ([]ModelResources, error) {
-	resources := make([]ModelResources, 0)
-
-	err := r.db.Select(&resources, `
-		SELECT
-			model,
-			input_tokens_per_minute,
-			output_tokens_per_minute,
-			requests_per_minute,
-			requests_per_day,
-			last_used
-		FROM usage_tracking
-		ORDER BY model
-	`)
-	if err != nil {
-		return nil, err
-	}
-
-	return resources, nil
 }
 
 func (r *ModelResourcesRepository) Update(resources *ModelResources) error {
 	if resources.LastUsed.IsZero() {
 		resources.LastUsed = time.Now()
 	}
-
 	result, err := r.db.NamedExec(`
 		UPDATE usage_tracking
-		SET
-			input_tokens_per_minute = :input_tokens_per_minute,
-			output_tokens_per_minute = :output_tokens_per_minute,
-			requests_per_minute = :requests_per_minute,
-			requests_per_day = :requests_per_day,
-			last_used = :last_used
-		WHERE model = :model
+		SET input_tokens_per_minute = :input_tokens_per_minute,
+		    output_tokens_per_minute = :output_tokens_per_minute,
+		    requests_per_minute = :requests_per_minute,
+		    requests_per_day = :requests_per_day,
+		    last_used = :last_used
+		WHERE model_id = :model_id
 	`, resources)
 	if err != nil {
 		return err
 	}
-
-	rowsAffected, err := result.RowsAffected()
+	rows, err := result.RowsAffected()
 	if err != nil {
 		return err
 	}
-
-	if rowsAffected == 0 {
+	if rows == 0 {
 		return ErrModelResourcesNotFound
 	}
-
 	return nil
 }
 
-func (r *ModelResourcesRepository) Delete(model string) error {
-	result, err := r.db.Exec(`
-		DELETE FROM usage_tracking
-		WHERE model = $1
-	`, model)
+func (r *ModelResourcesRepository) List() ([]ModelResources, error) {
+	var resources []ModelResources
+	err := r.db.Select(&resources, `
+		SELECT model_id, input_tokens_per_minute, output_tokens_per_minute, requests_per_minute, requests_per_day, last_used
+		FROM usage_tracking ORDER BY model_id
+	`)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
-		return ErrModelResourcesNotFound
-	}
-
-	return nil
+	return resources, nil
 }
