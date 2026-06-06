@@ -5,53 +5,67 @@ import (
 	"time"
 )
 
+// IncrementRequestCount increments RPM and RPD. Call this before sending the request.
+func (r *ModelResourcesRepository) IncrementRequestCount(modelID int) error {
+	now := time.Now().UTC()
+
+	resources, err := r.FindByModelID(modelID)
+	if err != nil {
+		if errors.Is(err, ErrModelResourcesNotFound) {
+			return r.Create(&ModelResources{
+				ModelID:           modelID,
+				RequestsPerMinute: 1,
+				RequestsPerDay:    1,
+				LastUsed:          now,
+			})
+		}
+		return err
+	}
+
+	updated := *resources
+	if isDifferentMinute(resources.LastUsed, now) {
+		updated.InputTokensPerMinute = 0
+		updated.OutputTokensPerMinute = 0
+		updated.RequestsPerMinute = 1
+	} else {
+		updated.RequestsPerMinute++
+	}
+	if isDifferentDay(resources.LastUsed, now) {
+		updated.RequestsPerDay = 1
+	} else {
+		updated.RequestsPerDay++
+	}
+	updated.LastUsed = now
+	return r.Update(&updated)
+}
+
+// AddTokenUsage adds input/output token counts after a successful request.
 func (r *ModelResourcesRepository) AddTokenUsage(modelID int, inputTokens int, outputTokens int, timestamp int) error {
 	lastUsed := time.Unix(int64(timestamp), 0).UTC()
 
 	resources, err := r.FindByModelID(modelID)
 	if err != nil {
 		if errors.Is(err, ErrModelResourcesNotFound) {
-			return r.Create(newModelResourcesFromUsage(modelID, inputTokens, outputTokens, lastUsed))
+			return r.Create(&ModelResources{
+				ModelID:               modelID,
+				InputTokensPerMinute:  inputTokens,
+				OutputTokensPerMinute: outputTokens,
+				LastUsed:              lastUsed,
+			})
 		}
 		return err
 	}
 
-	updatedResources := applyTokenUsage(resources, inputTokens, outputTokens, lastUsed)
-	return r.Update(updatedResources)
-}
-
-func newModelResourcesFromUsage(modelID int, inputTokens int, outputTokens int, lastUsed time.Time) *ModelResources {
-	return &ModelResources{
-		ModelID:               modelID,
-		InputTokensPerMinute:  inputTokens,
-		OutputTokensPerMinute: outputTokens,
-		RequestsPerMinute:     1,
-		RequestsPerDay:        1,
-		LastUsed:              lastUsed,
-	}
-}
-
-func applyTokenUsage(resources *ModelResources, inputTokens int, outputTokens int, lastUsed time.Time) *ModelResources {
-	updatedResources := *resources
-
+	updated := *resources
 	if isDifferentMinute(resources.LastUsed, lastUsed) {
-		updatedResources.InputTokensPerMinute = inputTokens
-		updatedResources.OutputTokensPerMinute = outputTokens
-		updatedResources.RequestsPerMinute = 1
+		updated.InputTokensPerMinute = inputTokens
+		updated.OutputTokensPerMinute = outputTokens
 	} else {
-		updatedResources.InputTokensPerMinute += inputTokens
-		updatedResources.OutputTokensPerMinute += outputTokens
-		updatedResources.RequestsPerMinute++
+		updated.InputTokensPerMinute += inputTokens
+		updated.OutputTokensPerMinute += outputTokens
 	}
-
-	if isDifferentDay(resources.LastUsed, lastUsed) {
-		updatedResources.RequestsPerDay = 1
-	} else {
-		updatedResources.RequestsPerDay++
-	}
-
-	updatedResources.LastUsed = lastUsed
-	return &updatedResources
+	updated.LastUsed = lastUsed
+	return r.Update(&updated)
 }
 
 func isDifferentMinute(previous time.Time, current time.Time) bool {

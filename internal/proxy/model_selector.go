@@ -32,16 +32,35 @@ func NewModelSelector(modelRepo *models.ModelRepository, rateLimitRepo *ratelimi
 // If groupName matches a model group, only models in that group are considered.
 // Otherwise all models are considered.
 func (s *ModelSelector) Select(groupName string) (models.Model, error) {
+	return s.SelectExcluding(groupName, nil)
+}
+
+// SelectExcluding picks the best model excluding any model IDs in the blacklist.
+func (s *ModelSelector) SelectExcluding(groupName string, excludedIDs []int) (models.Model, error) {
 	candidates, err := s.getCandidates(groupName)
 	if err != nil {
 		return models.Model{}, err
 	}
 
-	if len(candidates) == 0 {
+	filtered := candidates[:0]
+	for _, c := range candidates {
+		excluded := false
+		for _, id := range excludedIDs {
+			if c.model.ID == id {
+				excluded = true
+				break
+			}
+		}
+		if !excluded {
+			filtered = append(filtered, c)
+		}
+	}
+
+	if len(filtered) == 0 {
 		return models.Model{}, ErrNoAvailableModel
 	}
 
-	return chooseFurthestFromLimit(candidates), nil
+	return chooseFurthestFromLimit(filtered), nil
 }
 
 type candidate struct {
