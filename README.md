@@ -45,22 +45,39 @@ FreeLLM is an open-source proxy that lets you use large language models **comple
 
 The fastest way to get FreeLLM running is with the pre-built Docker image from [Docker Hub](https://hub.docker.com/repository/docker/cezarychodun/freellm/general).
 
+#### Download necessary files
 ```bash
-# Clone the repo and navigate to the example
-git clone git@github.com:CezaryChodun/FreeLLM.git
-cd FreeLLM/examples/docker-compose
+curl -L https://github.com/CezaryChodun/FreeLLM/archive/refs/heads/main.zip -o /tmp/freellm.zip && \
+    unzip -j /tmp/freellm.zip '*/examples/docker-compose/*' && \
+    rm /tmp/freellm.zip
 
-# Configure your environment
+```
+
+#### Configure your environment
+```bash
 cp .env.example .env
-# Edit .env with your API keys and passwords
+```
 
+#### Add your free API keys to `.env` file and set passwords
+
+- Set `LITELLM_SALT_KEY`, `LITELLM_MASTER_KEY`, `LITELLM_DB_PASSWORD`, and API keys:
+- [Gemini API key](https://aistudio.google.com/api-keys)
+- [Groq API key](https://console.groq.com/keys)
+
+> **Important!** Use only free API keys for LLM access. While FreeLLM keeps track of usage you might incure cost if your key is assigned to a paid plan.
+
+#### Run docker compose
+```bash
 # Start all services
 docker compose up -d
 ```
 
 FreeLLM will be available at `http://localhost:3000`. Point any OpenAI-compatible client at this URL.
 
-> **Note:** For non-local deployments, change the default database password in `docker-compose.yml` to a strong, unique password.
+
+> **Note:**
+> - FreeLLM doesn't store or use your keys. They are used by LiteLLM under the hood
+> - For non-local deployments, change the default database password in `docker-compose.yml` to a strong, unique password.
 
 ### What's included
 
