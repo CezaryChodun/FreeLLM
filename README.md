@@ -45,12 +45,14 @@ FreeLLM is an open-source proxy that lets you use large language models **comple
 
 The fastest way to get FreeLLM running is with the pre-built Docker image from [Docker Hub](https://hub.docker.com/repository/docker/cezarychodun/freellm/general).
 
-#### Download necessary files
+#### Download necessary files and move to the FreeLLM directory
 ```bash
 curl -L https://github.com/CezaryChodun/FreeLLM/archive/refs/heads/main.zip -o /tmp/freellm.zip && \
-    unzip -j /tmp/freellm.zip '*/examples/docker-compose/*' && \
-    rm /tmp/freellm.zip
+    unzip /tmp/freellm.zip 'FreeLLM-main/examples/docker-compose/*' -d /tmp/freellm_extract && \
+    cp -r /tmp/freellm_extract/FreeLLM-main/examples/docker-compose FreeLLM && \
+    rm -rf /tmp/freellm.zip /tmp/freellm_extract
 
+cd FreeLLM
 ```
 
 #### Configure your environment
